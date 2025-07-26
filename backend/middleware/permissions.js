@@ -2,45 +2,45 @@ const User = require('../models/User');
 const Role = require('../models/Role');
 
 // Permission checking middleware
-async function checkPermission(requiredPermission) {
-  return async (req, res, next) => {
-    try {
-      // Get user from JWT token (already verified by authenticateToken)
-      const userId = req.user.id;
-      
-      // Find user and populate role
-      const user = await User.findById(userId).populate('roleId');
-      if (!user) {
-        return res.status(404).json({ success: false, error: 'User not found' });
-      }
+function checkPermission(requiredPermission) {
+  return (req, res, next) => {
+    // Get user from JWT token (already verified by authenticateToken)
+    const userId = req.user.id;
+    
+    // Find user and populate role
+    User.findById(userId).populate('roleId')
+      .then(user => {
+        if (!user) {
+          return res.status(404).json({ success: false, error: 'User not found' });
+        }
 
-      // Check if user has role
-      if (!user.roleId) {
-        return res.status(403).json({ success: false, error: 'User has no role assigned' });
-      }
+        // Check if user has role
+        if (!user.roleId) {
+          return res.status(403).json({ success: false, error: 'User has no role assigned' });
+        }
 
-      const role = user.roleId;
-      
-      // Check for admin role (has all permissions)
-      if (role.permissions.includes('all')) {
-        return next();
-      }
+        const role = user.roleId;
+        
+        // Check for admin role (has all permissions)
+        if (role.permissions.includes('all')) {
+          return next();
+        }
 
-      // Check for specific permission
-      if (role.permissions.includes(requiredPermission)) {
-        return next();
-      }
+        // Check for specific permission
+        if (role.permissions.includes(requiredPermission)) {
+          return next();
+        }
 
-      // Permission denied
-      return res.status(403).json({ 
-        success: false, 
-        error: `Permission denied: ${requiredPermission} required` 
+        // Permission denied
+        return res.status(403).json({ 
+          success: false, 
+          error: `Permission denied: ${requiredPermission} required` 
+        });
+      })
+      .catch(error => {
+        console.error('Permission check error:', error);
+        return res.status(500).json({ success: false, error: 'Permission check failed' });
       });
-
-    } catch (error) {
-      console.error('Permission check error:', error);
-      return res.status(500).json({ success: false, error: 'Permission check failed' });
-    }
   };
 }
 
