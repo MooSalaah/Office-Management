@@ -1,25 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
 const logger = require('../logger');
 require('dotenv').config();
 const fetch = require('node-fetch');
 
-// JWT middleware
+// JWT authentication middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token provided' });
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
     req.user = user;
     next();
   });
 }
 
-// Get all users (public for testing)
-router.get('/', async (req, res) => {
+// Get all users (protected with view permission)
+router.get('/', authenticateToken, permissions.viewUsers, async (req, res) => {
   try {
     const users = await User.find();
     res.json({ success: true, data: users });
@@ -39,8 +47,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new user (public for testing)
-router.post('/', async (req, res) => {
+// Create new user (protected with create permission)
+router.post('/', authenticateToken, permissions.createUser, async (req, res) => {
   try {
     const user = new User(req.body);
     const newUser = await user.save();
@@ -67,7 +75,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// User login (returns JWT)
+// Login (public)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -87,8 +95,8 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Update user (public for testing)
-router.put('/:id', async (req, res) => {
+// Update user (protected with edit permission)
+router.put('/:id', authenticateToken, permissions.editUser, async (req, res) => {
   try {
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
@@ -119,8 +127,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete user (public for testing)
-router.delete('/:id', async (req, res) => {
+// Delete user (protected with delete permission)
+router.delete('/:id', authenticateToken, permissions.deleteUser, async (req, res) => {
   try {
     const deletedUser = await User.findByIdAndDelete(req.params.id);
     if (!deletedUser) return res.status(404).json({ success: false, error: 'User not found' });

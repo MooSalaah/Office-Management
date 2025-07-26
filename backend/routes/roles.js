@@ -2,8 +2,28 @@ const express = require('express');
 const router = express.Router();
 const Role = require('../models/Role');
 const logger = require('../logger');
+const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
 
-// Get all roles
+// JWT authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Get all roles (public for reading)
 router.get('/', async (req, res) => {
   try {
     const roles = await Role.find();
@@ -13,8 +33,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Seed default roles (create if they don't exist)
-router.post('/seed', async (req, res) => {
+// Seed default roles (protected with manage roles permission)
+router.post('/seed', authenticateToken, permissions.manageRoles, async (req, res) => {
   try {
     const defaultRoles = [
       {
@@ -86,8 +106,8 @@ router.post('/seed', async (req, res) => {
   }
 });
 
-// Create new role
-router.post('/', async (req, res) => {
+// Create new role (protected with manage roles permission)
+router.post('/', authenticateToken, permissions.manageRoles, async (req, res) => {
   try {
     console.log('=== CREATE ROLE REQUEST ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
@@ -134,8 +154,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update role
-router.put('/:id', async (req, res) => {
+// Update role (protected with manage roles permission)
+router.put('/:id', authenticateToken, permissions.manageRoles, async (req, res) => {
   try {
     console.log('=== UPDATE ROLE REQUEST ===');
     console.log('Role ID:', req.params.id);
@@ -194,8 +214,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete role
-router.delete('/:id', async (req, res) => {
+// Delete role (protected with manage roles permission)
+router.delete('/:id', authenticateToken, permissions.manageRoles, async (req, res) => {
   try {
     const deletedRole = await Role.findByIdAndDelete(req.params.id);
     if (!deletedRole) return res.status(404).json({ success: false, error: 'Role not found' });

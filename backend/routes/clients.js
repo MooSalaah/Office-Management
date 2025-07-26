@@ -2,24 +2,31 @@ const express = require('express');
 const router = express.Router();
 const Client = require('../models/Client');
 const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
 const logger = require('../logger');
 require('dotenv').config();
 const fetch = require('node-fetch');
 
-// JWT middleware
+// JWT authentication middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token provided' });
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
     req.user = user;
     next();
   });
 }
 
-// Get all clients (public for testing)
-router.get('/', async (req, res) => {
+// Get all clients (protected with view permission)
+router.get('/', authenticateToken, permissions.viewClients, async (req, res) => {
   try {
     const clients = await Client.find();
     res.json({ success: true, data: clients });
@@ -39,8 +46,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new client (public for testing)
-router.post('/', async (req, res) => {
+// Create new client (protected with create permission)
+router.post('/', authenticateToken, permissions.createClient, async (req, res) => {
   try {
     const client = new Client(req.body);
     const newClient = await client.save();
@@ -104,8 +111,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update client (public for testing)
-router.put('/:id', async (req, res) => {
+// Update client (protected with edit permission)
+router.put('/:id', authenticateToken, permissions.editClient, async (req, res) => {
   try {
     const updatedClient = await Client.findByIdAndUpdate(
       req.params.id,
@@ -136,8 +143,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete client (public for testing)
-router.delete('/:id', async (req, res) => {
+// Delete client (protected with delete permission)
+router.delete('/:id', authenticateToken, permissions.deleteClient, async (req, res) => {
   try {
     const deletedClient = await Client.findByIdAndDelete(req.params.id);
     if (!deletedClient) return res.status(404).json({ success: false, error: 'Client not found' });

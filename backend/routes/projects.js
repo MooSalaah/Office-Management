@@ -6,22 +6,30 @@ const logger = require('../logger');
 const fetch = require('node-fetch');
 const Task = require('../models/Task');
 const TaskType = require('../models/TaskType');
+const Notification = require('../models/Notification');
+const { permissions } = require('../middleware/permissions');
 require('dotenv').config();
 
-// JWT middleware
+// JWT authentication middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token provided' });
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
     req.user = user;
     next();
   });
 }
 
-// Get all projects (public for testing)
-router.get('/', async (req, res) => {
+// Get all projects (protected with view permission)
+router.get('/', authenticateToken, permissions.viewProjects, async (req, res) => {
   try {
     const projects = await Project.find();
     res.json({ success: true, data: projects });
@@ -41,8 +49,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new project (public for testing)
-router.post('/', async (req, res) => {
+// Create new project (protected with create permission)
+router.post('/', authenticateToken, permissions.createProject, async (req, res) => {
   try {
     console.log('=== PROJECT CREATION REQUEST ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
@@ -97,7 +105,6 @@ router.post('/', async (req, res) => {
         // Send notification to assignee
         if (t.assigneeId) {
           try {
-            const Notification = require('../models/Notification');
             const notification = new Notification({
               userId: t.assigneeId,
               title: `مهمة جديدة في مشروع: ${newProject.name}`,
@@ -131,8 +138,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update project (public for testing)
-router.put('/:id', async (req, res) => {
+// Update project (protected with edit permission)
+router.put('/:id', authenticateToken, permissions.editProject, async (req, res) => {
   try {
     // Get the original project to compare assigned engineer
     const originalProject = await Project.findById(req.params.id);
@@ -147,7 +154,6 @@ router.put('/:id', async (req, res) => {
     // Create notification if assigned engineer changed
     if (originalProject.assignedEngineerId !== updatedProject.assignedEngineerId && updatedProject.assignedEngineerId) {
       try {
-        const Notification = require('../models/Notification');
         const notification = new Notification({
           userId: updatedProject.assignedEngineerId,
           title: "مشروع مسند إليك",
@@ -178,8 +184,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete project (public for testing)
-router.delete('/:id', async (req, res) => {
+// Delete project (protected with delete permission)
+router.delete('/:id', authenticateToken, permissions.deleteProject, async (req, res) => {
   try {
     const deletedProject = await Project.findByIdAndDelete(req.params.id);
     if (!deletedProject) return res.status(404).json({ success: false, error: 'Project not found' });

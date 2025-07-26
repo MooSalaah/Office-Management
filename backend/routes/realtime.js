@@ -1,6 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const logger = require('../logger');
+const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
+
+// JWT authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
 
 // Store connected clients for broadcasting
 const clients = new Set();
@@ -51,8 +71,8 @@ router.get('/poll', (req, res) => {
   });
 });
 
-// Broadcast endpoint for sending updates
-router.post('/broadcast', (req, res) => {
+// Broadcast endpoint for sending updates (protected with admin permission)
+router.post('/broadcast', authenticateToken, permissions.admin, (req, res) => {
   try {
     const update = req.body;
 

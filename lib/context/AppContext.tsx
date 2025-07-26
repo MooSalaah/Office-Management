@@ -535,6 +535,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     fetchRoles();
   }, []);
 
+  // جلب المستخدمين من الباكند عند بدء التطبيق
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoadingState('users', true);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://office-management-fsy7.onrender.com'}/api/users`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.data)) {
+            // Update users in state
+            dispatch({ type: "SET_USERS", payload: data.data });
+            // Save to localStorage for offline access
+            localStorage.setItem("users", JSON.stringify(data.data));
+            logger.info('Users loaded from database', { count: data.data.length }, 'USERS');
+          }
+        } else {
+          logger.warn('Failed to fetch users from database, using localStorage', undefined, 'USERS');
+        }
+      } catch (error) {
+        logger.error('Error fetching users from database', { error: error.message }, 'USERS');
+      } finally {
+        setLoadingState('users', false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
   // Load all data from localStorage on mount
   useEffect(() => {
     const loadDataFromStorage = async () => {

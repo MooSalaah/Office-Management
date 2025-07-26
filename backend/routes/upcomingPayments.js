@@ -1,9 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const UpcomingPayment = require('../models/UpcomingPayment');
+const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
 
-// Get all upcoming payments
-router.get('/', async (req, res) => {
+// JWT authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Get all upcoming payments (protected with view permission)
+router.get('/', authenticateToken, permissions.viewFinance, async (req, res) => {
   try {
     const payments = await UpcomingPayment.find();
     res.json({ success: true, data: payments });
@@ -12,8 +32,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create new upcoming payment
-router.post('/', async (req, res) => {
+// Create new upcoming payment (protected with create permission)
+router.post('/', authenticateToken, permissions.createTransaction, async (req, res) => {
   try {
     const payment = new UpcomingPayment(req.body);
     const newPayment = await payment.save();
@@ -23,8 +43,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update upcoming payment
-router.put('/:id', async (req, res) => {
+// Update upcoming payment (protected with edit permission)
+router.put('/:id', authenticateToken, permissions.editTransaction, async (req, res) => {
   try {
     const updatedPayment = await UpcomingPayment.findByIdAndUpdate(
       req.params.id,
@@ -38,8 +58,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete upcoming payment
-router.delete('/:id', async (req, res) => {
+// Delete upcoming payment (protected with delete permission)
+router.delete('/:id', authenticateToken, permissions.deleteTransaction, async (req, res) => {
   try {
     const deletedPayment = await UpcomingPayment.findByIdAndDelete(req.params.id);
     if (!deletedPayment) return res.status(404).json({ success: false, error: 'Upcoming payment not found' });

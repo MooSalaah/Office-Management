@@ -1,8 +1,28 @@
 const express = require('express');
 const router = express.Router();
 const TaskType = require('../models/TaskType');
+const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
 
-// Get all task types
+// JWT authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Get all task types (public for reading)
 router.get('/', async (req, res) => {
   try {
     console.log('=== GET TASK TYPES REQUEST ===');
@@ -15,8 +35,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create new task type
-router.post('/', async (req, res) => {
+// Create new task type (protected with manage permission)
+router.post('/', authenticateToken, permissions.manageTaskTypes, async (req, res) => {
   try {
     const type = new TaskType(req.body);
     const newType = await type.save();
@@ -26,8 +46,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update task type
-router.put('/:id', async (req, res) => {
+// Update task type (protected with manage permission)
+router.put('/:id', authenticateToken, permissions.manageTaskTypes, async (req, res) => {
   try {
     const updatedType = await TaskType.findByIdAndUpdate(
       req.params.id,
@@ -41,8 +61,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete task type
-router.delete('/:id', async (req, res) => {
+// Delete task type (protected with manage permission)
+router.delete('/:id', authenticateToken, permissions.manageTaskTypes, async (req, res) => {
   try {
     const deletedType = await TaskType.findByIdAndDelete(req.params.id);
     if (!deletedType) return res.status(404).json({ success: false, error: 'TaskType not found' });
@@ -52,8 +72,8 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Seed default task types
-router.post('/seed', async (req, res) => {
+// Seed default task types (protected with manage permission)
+router.post('/seed', authenticateToken, permissions.manageTaskTypes, async (req, res) => {
   try {
     const defaultTaskTypes = [
       { name: "رسم مخططات معمارية", description: "رسم المخططات المعمارية الأساسية للمشروع", isDefault: true },

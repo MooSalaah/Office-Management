@@ -1,25 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
-const jwt = require('jsonwebtoken');
+const Notification = require('../models/Notification');
 const logger = require('../logger');
+const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
 require('dotenv').config();
 const fetch = require('node-fetch');
 
-// JWT middleware
+// JWT authentication middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token provided' });
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
     req.user = user;
     next();
   });
 }
 
-// Get all tasks (public for testing)
-router.get('/', async (req, res) => {
+// Get all tasks (protected with view permission)
+router.get('/', authenticateToken, permissions.viewTasks, async (req, res) => {
   try {
     const tasks = await Task.find();
     res.json({ success: true, data: tasks });
@@ -39,8 +47,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new task (public for testing)
-router.post('/', async (req, res) => {
+// Create new task (protected with create permission)
+router.post('/', authenticateToken, permissions.createTask, async (req, res) => {
   try {
     const task = new Task(req.body);
     const newTask = await task.save();
@@ -96,8 +104,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update task (public for testing)
-router.put('/:id', async (req, res) => {
+// Update task (protected with edit permission)
+router.put('/:id', authenticateToken, permissions.editTask, async (req, res) => {
   try {
     // Get the original task to compare assignee
     const originalTask = await Task.findById(req.params.id);
@@ -160,8 +168,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete task (public for testing)
-router.delete('/:id', async (req, res) => {
+// Delete task (protected with delete permission)
+router.delete('/:id', authenticateToken, permissions.deleteTask, async (req, res) => {
   try {
     const deletedTask = await Task.findByIdAndDelete(req.params.id);
     if (!deletedTask) return res.status(404).json({ success: false, error: 'Task not found' });

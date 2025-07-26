@@ -1,9 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
+const jwt = require('jsonwebtoken');
+const { permissions } = require('../middleware/permissions');
 
-// Get all transactions
-router.get('/', async (req, res) => {
+// JWT authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Get all transactions (protected with view permission)
+router.get('/', authenticateToken, permissions.viewFinance, async (req, res) => {
   try {
     const transactions = await Transaction.find();
     res.json({ success: true, data: transactions });
@@ -12,8 +32,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create new transaction
-router.post('/', async (req, res) => {
+// Create new transaction (protected with create permission)
+router.post('/', authenticateToken, permissions.createTransaction, async (req, res) => {
   try {
     const transaction = new Transaction(req.body);
     const newTransaction = await transaction.save();
@@ -23,8 +43,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update transaction
-router.put('/:id', async (req, res) => {
+// Update transaction (protected with edit permission)
+router.put('/:id', authenticateToken, permissions.editTransaction, async (req, res) => {
   try {
     const updatedTransaction = await Transaction.findByIdAndUpdate(
       req.params.id,
@@ -38,8 +58,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete transaction
-router.delete('/:id', async (req, res) => {
+// Delete transaction (protected with delete permission)
+router.delete('/:id', authenticateToken, permissions.deleteTransaction, async (req, res) => {
   try {
     const deletedTransaction = await Transaction.findByIdAndDelete(req.params.id);
     if (!deletedTransaction) return res.status(404).json({ success: false, error: 'Transaction not found' });

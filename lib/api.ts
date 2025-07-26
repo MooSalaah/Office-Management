@@ -21,6 +21,14 @@ class ApiClient {
 		this.baseUrl = baseUrl;
 	}
 
+	// Get JWT token from localStorage
+	private getAuthToken(): string | null {
+		if (typeof window !== 'undefined') {
+			return localStorage.getItem('token');
+		}
+		return null;
+	}
+
 	private async request<T>(
 		endpoint: string,
 		options: RequestInit = {},
@@ -28,13 +36,29 @@ class ApiClient {
 	): Promise<ApiResponse<T>> {
 		try {
 			const url = `${this.baseUrl}${endpoint}`;
+			
+			// Get auth token
+			const token = this.getAuthToken();
+			
+			// Prepare headers
+			const headers: Record<string, string> = {
+				"Content-Type": "application/json",
+				"Cache-Control": "no-cache",
+				Pragma: "no-cache",
+			};
+
+			// Add Authorization header if token exists
+			if (token) {
+				headers["Authorization"] = `Bearer ${token}`;
+			}
+
+			// Merge with custom headers from options
+			if (options.headers) {
+				Object.assign(headers, options.headers);
+			}
+
 			const response = await fetch(url, {
-				headers: {
-					"Content-Type": "application/json",
-					"Cache-Control": "no-cache",
-					Pragma: "no-cache",
-					...options.headers,
-				},
+				headers,
 				...options,
 			});
 
@@ -217,7 +241,7 @@ class ApiClient {
 	}
 
 	async register(userData: any) {
-		return this.request("/api/auth/register", {
+		return this.request("/api/users", {
 			method: "POST",
 			body: JSON.stringify(userData),
 		});
@@ -225,85 +249,171 @@ class ApiClient {
 
 	// Health check
 	async healthCheck() {
-		return this.request("/");
+		return this.request("/api/health");
 	}
 
 	// Task Types API
 	async getTaskTypes() {
 		return this.request("/api/taskTypes");
 	}
+
 	async createTaskType(typeData: any) {
 		return this.request("/api/taskTypes", {
 			method: "POST",
 			body: JSON.stringify(typeData),
 		});
 	}
+
 	async updateTaskType(id: string, typeData: any) {
 		return this.request(`/api/taskTypes/${id}`, {
 			method: "PUT",
 			body: JSON.stringify(typeData),
 		});
 	}
+
 	async deleteTaskType(id: string) {
 		return this.request(`/api/taskTypes/${id}`, {
 			method: "DELETE",
 		});
 	}
-	
+
 	async seedTaskTypes() {
 		return this.request("/api/taskTypes/seed", {
 			method: "POST",
 		});
 	}
+
+	// Finance API
+	async getTransactions() {
+		return this.request("/api/transactions");
+	}
+
+	async createTransaction(transactionData: any) {
+		return this.request("/api/transactions", {
+			method: "POST",
+			body: JSON.stringify(transactionData),
+		});
+	}
+
+	async updateTransaction(id: string, transactionData: any) {
+		return this.request(`/api/transactions/${id}`, {
+			method: "PUT",
+			body: JSON.stringify(transactionData),
+		});
+	}
+
+	async deleteTransaction(id: string) {
+		return this.request(`/api/transactions/${id}`, {
+			method: "DELETE",
+		});
+	}
+
+	// Upcoming Payments API
+	async getUpcomingPayments() {
+		return this.request("/api/upcomingPayments");
+	}
+
+	async createUpcomingPayment(paymentData: any) {
+		return this.request("/api/upcomingPayments", {
+			method: "POST",
+			body: JSON.stringify(paymentData),
+		});
+	}
+
+	async updateUpcomingPayment(id: string, paymentData: any) {
+		return this.request(`/api/upcomingPayments/${id}`, {
+			method: "PUT",
+			body: JSON.stringify(paymentData),
+		});
+	}
+
+	async deleteUpcomingPayment(id: string) {
+		return this.request(`/api/upcomingPayments/${id}`, {
+			method: "DELETE",
+		});
+	}
+
+	// Attendance API
+	async getAttendance() {
+		return this.request("/api/attendance");
+	}
+
+	async createAttendance(attendanceData: any) {
+		return this.request("/api/attendance", {
+			method: "POST",
+			body: JSON.stringify(attendanceData),
+		});
+	}
+
+	async updateAttendance(id: string, attendanceData: any) {
+		return this.request(`/api/attendance/${id}`, {
+			method: "PUT",
+			body: JSON.stringify(attendanceData),
+		});
+	}
+
+	async deleteAttendance(id: string) {
+		return this.request(`/api/attendance/${id}`, {
+			method: "DELETE",
+		});
+	}
+
+	// Company Settings API
+	async getCompanySettings() {
+		return this.request("/api/companySettings");
+	}
+
+	async updateCompanySettings(settingsData: any) {
+		return this.request("/api/companySettings", {
+			method: "POST",
+			body: JSON.stringify(settingsData),
+		});
+	}
+
+	// User Settings API
+	async getUserSettings(userId: string) {
+		return this.request(`/api/userSettings/${userId}`);
+	}
+
+	async updateUserSettings(settingsData: any) {
+		return this.request("/api/userSettings", {
+			method: "POST",
+			body: JSON.stringify(settingsData),
+		});
+	}
+
+	// Notifications API
+	async getNotifications() {
+		return this.request("/api/notifications");
+	}
+
+	async createNotification(notificationData: any) {
+		return this.request("/api/notifications", {
+			method: "POST",
+			body: JSON.stringify(notificationData),
+		});
+	}
+
+	async updateNotification(id: string, notificationData: any) {
+		return this.request(`/api/notifications/${id}`, {
+			method: "PUT",
+			body: JSON.stringify(notificationData),
+		});
+	}
+
+	async deleteNotification(id: string) {
+		return this.request(`/api/notifications/${id}`, {
+			method: "DELETE",
+		});
+	}
+
+	// Realtime API
+	async broadcastUpdate(updateData: any) {
+		return this.request("/api/realtime/broadcast", {
+			method: "POST",
+			body: JSON.stringify(updateData),
+		});
+	}
 }
 
-// Create and export API client instance
-export const apiClient = new ApiClient(API_BASE_URL);
-
-// Export individual API functions for convenience
-export const api = {
-	projects: {
-		getAll: () => apiClient.getProjects(),
-		create: (data: any) => apiClient.createProject(data),
-		update: (id: string, data: any) => apiClient.updateProject(id, data),
-		delete: (id: string) => apiClient.deleteProject(id),
-	},
-	tasks: {
-		getAll: () => apiClient.getTasks(),
-		create: (data: any) => apiClient.createTask(data),
-		update: (id: string, data: any) => apiClient.updateTask(id, data),
-		delete: (id: string) => apiClient.deleteTask(id),
-	},
-	clients: {
-		getAll: () => apiClient.getClients(),
-		create: (data: any) => apiClient.createClient(data),
-		update: (id: string, data: any) => apiClient.updateClient(id, data),
-		delete: (id: string) => apiClient.deleteClient(id),
-	},
-	users: {
-		getAll: () => apiClient.getUsers(),
-		create: (data: any) => apiClient.createUser(data),
-		update: (id: string, data: any) => apiClient.updateUser(id, data),
-		delete: (id: string) => apiClient.deleteUser(id),
-	},
-	roles: {
-		getAll: () => apiClient.getRoles(),
-		create: (data: any) => apiClient.createRole(data),
-		update: (id: string, data: any) => apiClient.updateRole(id, data),
-		delete: (id: string) => apiClient.deleteRole(id),
-		seed: () => apiClient.seedRoles(),
-	},
-	auth: {
-		login: (credentials: { email: string; password: string }) =>
-			apiClient.login(credentials),
-		register: (userData: any) => apiClient.register(userData),
-	},
-	health: () => apiClient.healthCheck(),
-	taskTypes: {
-		getAll: () => apiClient.getTaskTypes(),
-		create: (data: any) => apiClient.createTaskType(data),
-		update: (id: string, data: any) => apiClient.updateTaskType(id, data),
-		delete: (id: string) => apiClient.deleteTaskType(id),
-		seed: () => apiClient.seedTaskTypes(),
-	},
-};
+export const api = new ApiClient(API_BASE_URL);
