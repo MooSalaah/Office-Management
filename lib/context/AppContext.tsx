@@ -539,7 +539,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        // setLoadingState('users', true); // إزالة هذا السطر مؤقتاً
+        dispatch({ type: "SET_LOADING_STATE", payload: { key: 'users', value: true } });
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://office-management-fsy7.onrender.com'}/api/users`);
         if (response.ok) {
           const data = await response.json();
@@ -556,7 +556,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         logger.error('Error fetching users from database', { error: error.message }, 'USERS');
       } finally {
-        // setLoadingState('users', false); // إزالة هذا السطر مؤقتاً
+        dispatch({ type: "SET_LOADING_STATE", payload: { key: 'users', value: false } });
       }
     };
     fetchUsers();
