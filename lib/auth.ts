@@ -163,24 +163,27 @@ export const updateUserPermissionsByRole = (user: User): User => {
 
 export const login = async (email: string, password: string): Promise<User | null> => {
 	try {
-		const response = await api.auth.login({ email, password });
-		if (response && response.token && response.user) {
-			const user = {
-				id: response.user.id || response.user._id || "",
-				name: response.user.name,
-				email: response.user.email,
-				role: response.user.role,
-				isActive: true,
-				createdAt: response.user.createdAt || "",
-				permissions: response.user.permissions || [],
-				phone: response.user.phone || "",
-				avatar: response.user.avatar || undefined,
-				monthlySalary: response.user.monthlySalary || undefined,
-				workingHours: response.user.workingHours || undefined,
-			};
-			localStorage.setItem("currentUser", JSON.stringify(user));
-			localStorage.setItem("token", response.token);
-			return user;
+		const response = await api.login({ email, password });
+		if (response && response.success && response.data) {
+			const loginData = response.data as any;
+			if (loginData.token && loginData.user) {
+				const user = {
+					id: loginData.user.id || loginData.user._id || "",
+					name: loginData.user.name,
+					email: loginData.user.email,
+					role: loginData.user.role,
+					isActive: true,
+					createdAt: loginData.user.createdAt || "",
+					permissions: loginData.user.permissions || [],
+					phone: loginData.user.phone || "",
+					avatar: loginData.user.avatar || undefined,
+					monthlySalary: loginData.user.monthlySalary || undefined,
+					workingHours: loginData.user.workingHours || undefined,
+				};
+				localStorage.setItem("currentUser", JSON.stringify(user));
+				localStorage.setItem("token", loginData.token);
+				return user;
+			}
 		}
 		return null;
 	} catch (err) {
